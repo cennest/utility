@@ -12,26 +12,26 @@ using System.Xml.Serialization;
 
 namespace LumedicExcelParser
 {
-    public class CPT
+    public class cpt
     {
-        [XmlAttribute]
-        public string Code { get; set; }
+        //[XmlAttribute]
+        public string code { get; set; }
         
-        public string AuthorizationEffectiveDate { get; set; }
-        public string AuthorizationTerminationDate { get; set; }
-        public string PlanNames { get; set; }
+        public string authorizationEffectiveDate { get; set; }
+        public string authorizationTerminationDate { get; set; }
+        public List<string> planNames { get; set; }
     }
 
     
-    public class PriorAuthorizationList
+    public class priorAuthorizationList
     {
-        [XmlAttribute]
-        public string PayerName { get; set; }
-        [XmlAttribute]
-        public string BillingPolicyDocumentStartDate { get; set; }
-        [XmlAttribute]
-        public string BillingPolicyDocumentEndDate { get; set; }
-        public List<CPT> CPTList { get; set; } = new List<CPT>();
+        //[XmlAttribute]
+        public string payerName { get; set; }
+        //[XmlAttribute]
+        public string billingPolicyDocumentStartDate { get; set; }
+        //[XmlAttribute]
+        public string billingPolicyDocumentEndDate { get; set; }
+        public List<cpt> cptList { get; set; } = new List<cpt>();
     }
 
     class Program
@@ -50,20 +50,43 @@ namespace LumedicExcelParser
             }
         }
 
+        static string ToJson(Object oObject)
+        {
+            string json = JsonConvert.SerializeObject(oObject);
+            return json;
+        }
+
+        static string ToStarndardDate(string dateStr)
+        {
+            if (string.IsNullOrWhiteSpace(dateStr)) return dateStr;
+
+            var date = DateTime.ParseExact(dateStr, "MM/dd/yyyy", null);
+            string formatedDate = date.ToString("yyyy/MM/dd");
+            return formatedDate;
+        }
+
+        static List<string> CSVToArray(string csv, char delimeter)
+        {
+            if (string.IsNullOrWhiteSpace(csv)) return new List<string>();
+
+            List<string> items = csv.Split(delimeter).Select(e => e.Trim()).ToList();
+            return items;
+        }
+
         static void Main(string[] args)
         {
             
-
             string payer = "Providence Health Plan";
-            string policyStartDt = "4/1/2019";
-            string policyEndDt = "6/1/2019";
+            string policyStartDt = "2019/04/01";
+            string policyEndDt = "2019/06/01";
 
             //string path = @"C:\Users\Pradeep\Downloads\tabula-PHP_prior_authorization_code_list_short (2).csv";
-            string path = @"D:\Cennest\tabula-PHP_prior_authorization_code_list_new.csv";
+            string path = @"D:\Cennest\PHP_prior_authorization_blacklist_code_22_April.csv";
             string indexColumn = "Code";
             int headerSpan = 2;
+            char delimeter = ',';
             
-            var csvSet = new CSVDataSet<Dictionary<string, string>>(path, ',', headerSpan : headerSpan);
+            var csvSet = new CSVDataSet<Dictionary<string, string>>(path, delimeter, headerSpan : headerSpan);
             var rows = csvSet.ToList();
 
             Dictionary<int, SafeObject<string, string>> processedRows = new Dictionary<int, SafeObject<string, string>>();
@@ -91,30 +114,32 @@ namespace LumedicExcelParser
                 }
             }
 
-            var providencePriorAuthSet = new PriorAuthorizationList();
-            providencePriorAuthSet.PayerName = payer;
-            providencePriorAuthSet.BillingPolicyDocumentStartDate = policyStartDt;
-            providencePriorAuthSet.BillingPolicyDocumentEndDate = policyEndDt;
+            var providencePriorAuthSet = new priorAuthorizationList();
+            providencePriorAuthSet.payerName = payer;
+            providencePriorAuthSet.billingPolicyDocumentStartDate = policyStartDt;
+            providencePriorAuthSet.billingPolicyDocumentEndDate = policyEndDt;
 
             foreach (SafeObject<string, string> csvRow in processedRows.Values)
             {
-                CPT cpt = new CPT();
-                cpt.Code = csvRow["Code"];
-                cpt.AuthorizationEffectiveDate = csvRow["Prior AuthorizationEffective Date"];
-                cpt.AuthorizationTerminationDate = csvRow["Prior AuthorizationTermination Date"];
-                cpt.PlanNames = csvRow["Combined PA List"];
+                cpt cpt = new cpt();
+                cpt.code = csvRow["Code"];
+                cpt.authorizationEffectiveDate = ToStarndardDate(csvRow["Prior AuthorizationEffective Date"]);
+                cpt.authorizationTerminationDate = ToStarndardDate(csvRow["Prior AuthorizationTermination Date"]);
+                cpt.planNames = CSVToArray(csvRow["Combined PA List"], delimeter);
 
-                providencePriorAuthSet.CPTList.Add(cpt);
+                providencePriorAuthSet.cptList.Add(cpt);
             }
 
-            string xml = ToXML(providencePriorAuthSet);
-            string exportfile = Path.ChangeExtension(path, ".xml");
+            string data = ToJson(providencePriorAuthSet);
+            string exportfile = Path.ChangeExtension(path, ".json");
             
             using (var writer = new FileWriter(exportfile, false))
             {
-                writer.WriteText(xml, false);
+                writer.WriteText(data, false);
             }
                 
         }
+
+        
     }
 }
